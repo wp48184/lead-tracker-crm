@@ -37,8 +37,8 @@ if st.button("Save Lead"):
             "service": service,
             "status": status,
             "follow_up": str(follow_up),
-            "notes": notes
-            "quote": quote
+            "notes": notes,
+            "quote": quote,
             "adress": adress
         })
         save_leads(leads)
