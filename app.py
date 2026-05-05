@@ -2,4 +2,83 @@ import streamlit as st
 import json
 from datetime import date
 
+FILE_NAME = "leads.json"
+
+def load_leads():
+    try:
+        with open(FILE_NAME, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
+
+def save_leads(leads):
+    with open(FILE_NAME, "w") as file:
+        json.dump(leads, file, indent=4)
+
+st.title("Lead Tracker CRM 💼")
+st.write("Real Estate + Cleaning Business Lead Tracker")
+
+leads = load_leads()
+
+st.header("Add New Lead")
+
+name = st.text_input("Name")
+phone = st.text_input("Phone")
+service = st.selectbox("Service", ["Real Estate", "Cleaning", "Other"])
+status = st.selectbox("Lead Status", ["New", "Contacted", "Follow-Up Needed", "Closed", "Lost"])
+follow_up = st.date_input("Follow-Up Date", value=date.today())
+notes = st.text_area("Notes")
+
+if st.button("Save Lead"):
+    if name and phone:
+        leads.append({
+            "name": name,
+            "phone": phone,
+            "service": service,
+            "status": status,
+            "follow_up": str(follow_up),
+            "notes": notes
+        })
+        save_leads(leads)
+        st.success("Lead saved!")
+    else:
+        st.warning("Please enter a name and phone number.")
+
+st.divider()
+
+st.header("Search & Filter Leads")
+
+search = st.text_input("Search by name or phone")
+status_filter = st.selectbox("Filter by status", ["All", "New", "Contacted", "Follow-Up Needed", "Closed", "Lost"])
+
+filtered_leads = []
+
+for lead in leads:
+    matches_search = (
+        search.lower() in lead.get("name", "").lower()
+        or search.lower() in lead.get("phone", "").lower()
+    )
+
+    matches_status = (
+        status_filter == "All"
+        or lead.get("status", "New") == status_filter
+    )
+
+    if matches_search and matches_status:
+        filtered_leads.append(lead)
+
+st.header("Leads")
+
+if filtered_leads:
+    for lead in filtered_leads:
+        st.subheader(lead.get("name", "No Name"))
+        st.write(f"📞 Phone: {lead.get('phone', '')}")
+        st.write(f"🏢 Service: {lead.get('service', '')}")
+        st.write(f"📌 Status: {lead.get('status', 'New')}")
+        st.write(f"📅 Follow-Up: {lead.get('follow_up', 'Not set')}")
+        st.write(f"📝 Notes: {lead.get('notes', '')}")
+        st.divider()
+else:
+    st.write("No leads found.")
+
 
