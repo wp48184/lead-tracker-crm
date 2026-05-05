@@ -81,8 +81,8 @@ st.header("Leads")
 
 if filtered_leads:
     for lead in filtered_leads:
-    if lead.get("follow_up") == str(date.today()):
-        st.error("⚠️ FOLLOW UP TODAY")
+        if lead.get("follow_up") == str(date.today()):
+            st.error("⚠️ FOLLOW UP TODAY")
 
     st.subheader(lead.get("name", "No Name"))
     st.write(f"📞 Phone: {lead.get('phone', '')}")
