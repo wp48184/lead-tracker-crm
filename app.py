@@ -26,7 +26,7 @@ def money(value):
 leads = load_leads()
 
 st.title("William Locht CRM 💼")
-st.caption("Ocala Real Estate + Cleaning Lead Tracker")
+st.caption("Ocala Real Estate + Cleaning Lead & Payment Tracker")
 
 st.divider()
 
@@ -34,13 +34,18 @@ total_leads = len(leads)
 closed_leads = len([lead for lead in leads if lead.get("status") == "Closed"])
 today_followups = len([lead for lead in leads if lead.get("follow_up") == str(date.today())])
 pipeline_value = sum(money(lead.get("quote", 0)) for lead in leads)
+total_owed = sum(money(lead.get("amount_owed", 0)) for lead in leads)
+total_paid = sum(money(lead.get("amount_paid", 0)) for lead in leads)
+balance_due = total_owed - total_paid
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 col1.metric("Total Leads", total_leads)
 col2.metric("Closed Leads", closed_leads)
 col3.metric("Follow-Ups Today", today_followups)
 col4.metric("Pipeline Value", f"${pipeline_value:,.0f}")
+col5.metric("Paid", f"${total_paid:,.0f}")
+col6.metric("Balance Due", f"${balance_due:,.0f}")
 
 st.divider()
 
@@ -51,10 +56,16 @@ with left:
 
     name = st.text_input("Name")
     phone = st.text_input("Phone")
+    address = st.text_input("Address")
     service = st.selectbox("Lead Type", ["Buyer Lead", "Seller Lead", "Cleaning Client", "Referral", "Other"])
     status = st.selectbox("Status", ["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"])
     follow_up = st.date_input("Follow-Up Date", value=date.today())
+
     quote = st.text_input("Deal Value / Cleaning Quote ($)")
+    amount_owed = st.text_input("Amount Owed ($)")
+    amount_paid = st.text_input("Amount Paid ($)")
+    payment_status = st.selectbox("Payment Status", ["Unpaid", "Partial", "Paid"])
+
     next_action = st.text_input("Next Action")
     notes = st.text_area("Notes")
 
@@ -63,10 +74,14 @@ with left:
             new_lead = {
                 "name": name,
                 "phone": phone,
+                "address": address,
                 "service": service,
                 "status": status,
                 "follow_up": str(follow_up),
                 "quote": quote,
+                "amount_owed": amount_owed,
+                "amount_paid": amount_paid,
+                "payment_status": payment_status,
                 "next_action": next_action,
                 "notes": notes
             }
@@ -81,10 +96,15 @@ with left:
 with right:
     st.subheader("📋 Lead Pipeline")
 
-    search = st.text_input("Search by name or phone")
+    search = st.text_input("Search by name, phone, or address")
     status_filter = st.selectbox(
         "Filter by status",
         ["All", "New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"]
+    )
+
+    payment_filter = st.selectbox(
+        "Filter by payment status",
+        ["All", "Unpaid", "Partial", "Paid"]
     )
 
     filtered_leads = []
@@ -93,6 +113,7 @@ with right:
         matches_search = (
             search.lower() in lead.get("name", "").lower()
             or search.lower() in lead.get("phone", "").lower()
+            or search.lower() in lead.get("address", "").lower()
         )
 
         matches_status = (
@@ -100,7 +121,12 @@ with right:
             or lead.get("status", "New") == status_filter
         )
 
-        if matches_search and matches_status:
+        matches_payment = (
+            payment_filter == "All"
+            or lead.get("payment_status", "Unpaid") == payment_filter
+        )
+
+        if matches_search and matches_status and matches_payment:
             filtered_leads.append(lead)
 
     if filtered_leads:
@@ -115,14 +141,19 @@ with right:
                     st.write(f"**Status:** {lead.get('status', 'New')}")
 
                 with top3:
-                    st.write(f"**Value:** ${money(lead.get('quote', 0)):,.0f}")
+                    st.write(f"**Balance:** ${money(lead.get('amount_owed', 0)) - money(lead.get('amount_paid', 0)):,.0f}")
 
                 if lead.get("follow_up") == str(date.today()):
                     st.error("⚠️ FOLLOW UP TODAY")
 
                 st.write(f"📞 **Phone:** {lead.get('phone', '')}")
+                st.write(f"📍 **Address:** {lead.get('address', '')}")
                 st.write(f"🏷️ **Type:** {lead.get('service', '')}")
                 st.write(f"📅 **Follow-Up:** {lead.get('follow_up', 'Not set')}")
+                st.write(f"💰 **Quote / Deal Value:** ${money(lead.get('quote', 0)):,.0f}")
+                st.write(f"💸 **Amount Owed:** ${money(lead.get('amount_owed', 0)):,.0f}")
+                st.write(f"✅ **Amount Paid:** ${money(lead.get('amount_paid', 0)):,.0f}")
+                st.write(f"🧾 **Payment Status:** {lead.get('payment_status', 'Unpaid')}")
                 st.write(f"👉 **Next Action:** {lead.get('next_action', '')}")
                 st.write(f"📝 **Notes:** {lead.get('notes', '')}")
 
