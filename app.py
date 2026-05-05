@@ -34,24 +34,28 @@ status = st.selectbox("Lead Status", ["New", "Called", "Texted", "Appointment Se
 follow_up = st.date_input("Follow-Up Date", value=date.today())
 notes = st.text_area("Notes")
 quote = st.text_input("Deal Value / Cleaning Quote ($)")
+next_action = st.text_input("Next Action")
+
 if st.button("Save Lead"):
+    if st.button("Save Lead"):
     if name and phone:
-        leads.append({
-    "name": name,
-    "phone": phone,
-    "service": service,
-    "status": status,
-    "follow_up": str(follow_up),
-    "notes": notes,
-    "quote": quote,
-    "next_action": next_action
-})
+        new_lead = {
+            "name": name,
+            "phone": phone,
+            "service": service,
+            "status": status,
+            "follow_up": str(follow_up),
+            "notes": notes,
+            "quote": quote,
+            "next_action": next_action
+        }
+
+        leads.append(new_lead)
         save_leads(leads)
-        next_action = st.text_input("Next Action (Call, Text, Show Property, Quote Cleaning, etc.)")
-        "next_action": next_action,    
         st.success("Lead saved!")
     else:
         st.warning("Please enter a name and phone number.")
+       
 
 st.divider()
 
