@@ -1,7 +1,12 @@
 import streamlit as st
 import json
 from datetime import date
+from datetime import datetime
 
+today = str(date.today())
+
+if lead.get("follow_up") == today:
+    st.error("⚠️ FOLLOW UP TODAY")
 FILE_NAME = "leads.json"
 
 def load_leads():
@@ -28,7 +33,7 @@ service = st.selectbox("Service", ["Buyer Lead", "Seller Lead", "Cleaning Client
 status = st.selectbox("Lead Status", ["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"])
 follow_up = st.date_input("Follow-Up Date", value=date.today())
 notes = st.text_area("Notes")
-
+quote = st.text_input("Deal Value / Cleaning Quote ($)")
 if st.button("Save Lead"):
     if name and phone:
         leads.append({
@@ -37,11 +42,12 @@ if st.button("Save Lead"):
             "service": service,
             "status": status,
             "follow_up": str(follow_up),
-            "notes": notes,
-            "quote": quote,
+            "notes": notes,            
             "adress": adress
         })
         save_leads(leads)
+        next_action = st.text_input("Next Action (Call, Text, Show Property, Quote Cleaning, etc.)")
+        "next_action": next_action,    
         st.success("Lead saved!")
     else:
         st.warning("Please enter a name and phone number.")
@@ -83,4 +89,7 @@ if filtered_leads:
 else:
     st.write("No leads found.")
 
-
+if st.button(f"Delete {lead.get('name')}", key=lead.get('phone')):
+    leads.remove(lead)
+    save_leads(leads)
+    st.rerun()
