@@ -92,9 +92,10 @@ if filtered_leads:
     st.write(f"📝 Notes: {lead.get('notes', '')}")
     st.write(f"💰 Value: {lead.get('quote', '')}")
     st.write(f"👉 Next Action: {lead.get('next_action', '')}")
-    st.divider()
 
-if st.button(f"Delete {lead.get('name')}", key=lead.get('phone')):
-    leads.remove(lead)
-    save_leads(leads)
-    st.rerun()
+    if st.button(f"Delete {lead.get('name')}", key=f"delete-{lead.get('phone')}"):
+        leads.remove(lead)
+        save_leads(leads)
+        st.rerun()
+
+    st.divider()
