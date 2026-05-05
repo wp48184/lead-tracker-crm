@@ -37,7 +37,6 @@ quote = st.text_input("Deal Value / Cleaning Quote ($)")
 next_action = st.text_input("Next Action")
 
 if st.button("Save Lead"):
-    if st.button("Save Lead"):
     if name and phone:
         new_lead = {
             "name": name,
@@ -53,8 +52,9 @@ if st.button("Save Lead"):
         leads.append(new_lead)
         save_leads(leads)
         st.success("Lead saved!")
+
     else:
-        st.warning("Please enter a name and phone number.")
+        st.warning("Please enter a name and phone number.") 
        
 
 st.divider()
