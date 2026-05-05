@@ -3,10 +3,7 @@ import json
 from datetime import date
 from datetime import datetime
 
-today = str(date.today())
 
-if lead.get("follow_up") == today:
-    st.error("⚠️ FOLLOW UP TODAY")
 FILE_NAME = "leads.json"
 
 def load_leads():
@@ -84,6 +81,10 @@ st.header("Leads")
 
 if filtered_leads:
     for lead in filtered_leads:
+    if lead.get("follow_up") == str(date.today()):
+        st.error("⚠️ FOLLOW UP TODAY")
+
+    st.subheader(lead.get("name", "No Name"))
         st.subheader(lead.get("name", "No Name"))
         st.write(f"📞 Phone: {lead.get('phone', '')}")
         st.write(f"🏢 Service: {lead.get('service', '')}")
