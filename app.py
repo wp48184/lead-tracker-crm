@@ -1,22 +1,34 @@
 import streamlit as st
 import json
 import pandas as pd
+import hashlib
+import os
 from datetime import date, datetime
 
-FILE_NAME = "leads.json"
+LEADS_FILE = "leads.json"
+USERS_FILE = "users.json"
 
-st.set_page_config(page_title="William Locht CRM", page_icon="💼", layout="wide")
+st.set_page_config(
+    page_title="TrueNorth CRM",
+    page_icon="🧭",
+    layout="wide"
+)
 
-def load_leads():
+# ---------- BASIC DATABASE FUNCTIONS ----------
+
+def load_json(file_name, default):
     try:
-        with open(FILE_NAME, "r") as file:
+        with open(file_name, "r") as file:
             return json.load(file)
     except FileNotFoundError:
-        return []
+        return default
 
-def save_leads(leads):
-    with open(FILE_NAME, "w") as file:
-        json.dump(leads, file, indent=4)
+def save_json(file_name, data):
+    with open(file_name, "w") as file:
+        json.dump(data, file, indent=4)
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def money(value):
     try:
@@ -27,14 +39,105 @@ def money(value):
 def balance_due(lead):
     return money(lead.get("amount_owed", 0)) - money(lead.get("amount_paid", 0))
 
-leads = load_leads()
+users = load_json(USERS_FILE, {})
+all_leads = load_json(LEADS_FILE, {})
 
-st.title("William Locht CRM 💼")
-st.caption("Ocala Real Estate + Cleaning Lead, Follow-Up & Payment Tracker")
+# ---------- SESSION STATE ----------
 
-tabs = st.tabs(["📊 Dashboard", "➕ Add Lead", "📋 Leads", "💰 Payments", "📅 Follow-Ups", "📤 Export"])
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-# DASHBOARD
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+# ---------- AUTH PAGE ----------
+
+if not st.session_state.logged_in:
+    st.title("🧭 TrueNorth CRM")
+    st.caption("Simple CRM for realtors, cleaning companies, and local service businesses.")
+
+    tab_login, tab_signup = st.tabs(["Login", "Create Account"])
+
+    with tab_login:
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+
+        if st.button("Login", use_container_width=True):
+            if username in users and users[username]["password"] == hash_password(password):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+
+    with tab_signup:
+        new_username = st.text_input("Create Username", key="signup_user")
+        new_password = st.text_input("Create Password", type="password", key="signup_pass")
+        business_name = st.text_input("Business Name", value="My Business CRM")
+        business_type = st.selectbox("Business Type", ["Real Estate", "Cleaning", "Both", "Other"])
+
+        if st.button("Create Account", use_container_width=True):
+            if not new_username or not new_password:
+                st.warning("Please enter a username and password.")
+            elif new_username in users:
+                st.warning("That username already exists.")
+            else:
+                users[new_username] = {
+                    "password": hash_password(new_password),
+                    "business_name": business_name,
+                    "business_type": business_type,
+                    "created_at": str(datetime.now())
+                }
+
+                all_leads[new_username] = []
+
+                save_json(USERS_FILE, users)
+                save_json(LEADS_FILE, all_leads)
+
+                st.success("Account created! You can now log in.")
+
+    st.stop()
+
+# ---------- USER DATA ----------
+
+username = st.session_state.username
+user = users.get(username, {})
+business_name = user.get("business_name", "TrueNorth CRM")
+
+if username not in all_leads:
+    all_leads[username] = []
+
+leads = all_leads[username]
+
+# ---------- SIDEBAR ----------
+
+with st.sidebar:
+    st.title("🧭 TrueNorth CRM")
+    st.write(f"**Business:** {business_name}")
+    st.write(f"**User:** {username}")
+
+    if st.button("Logout", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+
+# ---------- HEADER ----------
+
+st.title(f"{business_name} 💼")
+st.caption("Lead Tracking • Follow-Ups • Payments • Pipeline Management")
+
+tabs = st.tabs([
+    "📊 Dashboard",
+    "➕ Add Lead",
+    "📋 Leads",
+    "💰 Payments",
+    "📅 Follow-Ups",
+    "📤 Export",
+    "⚙️ Settings"
+])
+
+# ---------- DASHBOARD ----------
+
 with tabs[0]:
     total_leads = len(leads)
     closed_leads = len([lead for lead in leads if lead.get("status") == "Closed"])
@@ -43,16 +146,20 @@ with tabs[0]:
     total_paid = sum(money(lead.get("amount_paid", 0)) for lead in leads)
     total_owed = sum(money(lead.get("amount_owed", 0)) for lead in leads)
     total_balance = total_owed - total_paid
+    commission_total = sum(money(lead.get("commission_estimate", 0)) for lead in leads)
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+
     col1.metric("Total Leads", total_leads)
     col2.metric("Closed", closed_leads)
     col3.metric("Follow-Ups Today", today_followups)
     col4.metric("Pipeline", f"${pipeline_value:,.0f}")
     col5.metric("Paid", f"${total_paid:,.0f}")
     col6.metric("Balance Due", f"${total_balance:,.0f}")
+    col7.metric("Commission Est.", f"${commission_total:,.0f}")
 
     st.divider()
+
     st.subheader("🔥 Today’s Follow-Ups")
 
     due_today = [lead for lead in leads if lead.get("follow_up") == str(date.today())]
@@ -60,15 +167,17 @@ with tabs[0]:
     if due_today:
         for lead in due_today:
             with st.container(border=True):
-                st.write(f"**{lead.get('name', 'No Name')}**")
-                st.write(f"📞 {lead.get('phone', '')}")
-                st.write(f"📧 {lead.get('email', '')}")
-                st.write(f"👉 Next Action: {lead.get('next_action', '')}")
-                st.write(f"📝 Notes: {lead.get('notes', '')}")
+                st.write(f"### {lead.get('name', 'No Name')}")
+                st.write(f"📞 **Phone:** {lead.get('phone', '')}")
+                st.write(f"📧 **Email:** {lead.get('email', '')}")
+                st.write(f"📍 **Address:** {lead.get('address', '')}")
+                st.write(f"👉 **Next Action:** {lead.get('next_action', '')}")
+                st.write(f"📝 **Notes:** {lead.get('notes', '')}")
     else:
         st.success("No follow-ups due today.")
 
-# ADD LEAD
+# ---------- ADD LEAD ----------
+
 with tabs[1]:
     st.subheader("➕ Add New Lead")
 
@@ -94,6 +203,7 @@ with tabs[1]:
         invoice_status = st.selectbox("Invoice Status", ["Not Sent", "Sent", "Paid", "Overdue"])
 
     st.subheader("🏠 Property / Job Details")
+
     colC, colD, colE = st.columns(3)
 
     with colC:
@@ -152,13 +262,16 @@ with tabs[1]:
                 })
 
             leads.append(new_lead)
-            save_leads(leads)
+            all_leads[username] = leads
+            save_json(LEADS_FILE, all_leads)
+
             st.success("Lead saved!")
             st.rerun()
         else:
             st.warning("Please enter a name and phone number.")
 
-# LEADS + EDIT
+# ---------- LEADS ----------
+
 with tabs[2]:
     st.subheader("📋 Leads")
 
@@ -167,6 +280,7 @@ with tabs[2]:
     source_filter = st.selectbox("Filter by lead source", ["All", "Facebook", "Instagram", "Zillow", "Referral", "Sign Call", "Website", "Past Client", "Other"])
 
     filtered_leads = []
+
     for lead in leads:
         matches_search = (
             search.lower() in lead.get("name", "").lower()
@@ -186,10 +300,11 @@ with tabs[2]:
             real_index = leads.index(lead)
 
             with st.container(border=True):
-                top1, top2, top3 = st.columns([2, 1, 1])
-                top1.subheader(lead.get("name", "No Name"))
-                top2.write(f"**Status:** {lead.get('status', 'New')}")
-                top3.write(f"**Balance:** ${balance_due(lead):,.0f}")
+                col1, col2, col3 = st.columns([2, 1, 1])
+
+                col1.subheader(lead.get("name", "No Name"))
+                col2.write(f"**Status:** {lead.get('status', 'New')}")
+                col3.write(f"**Balance:** ${balance_due(lead):,.0f}")
 
                 if lead.get("follow_up") == str(date.today()):
                     st.error("⚠️ FOLLOW UP TODAY")
@@ -205,13 +320,18 @@ with tabs[2]:
                 st.write(f"📝 **Notes:** {lead.get('notes', '')}")
 
                 with st.expander("✏️ Edit Lead"):
-                    edit_status = st.selectbox("Status", ["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"], index=["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"].index(lead.get("status", "New")), key=f"status-{real_index}")
+                    statuses = ["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"]
+                    payment_statuses = ["Unpaid", "Partial", "Paid"]
+                    invoice_statuses = ["Not Sent", "Sent", "Paid", "Overdue"]
+
+                    edit_status = st.selectbox("Status", statuses, index=statuses.index(lead.get("status", "New")), key=f"status-{real_index}")
                     edit_follow_up = st.date_input("Follow-Up Date", value=date.fromisoformat(lead.get("follow_up", str(date.today()))), key=f"follow-{real_index}")
                     edit_last_contacted = st.date_input("Last Contacted", value=date.fromisoformat(lead.get("last_contacted", str(date.today()))), key=f"last-{real_index}")
                     edit_amount_owed = st.text_input("Amount Owed", value=lead.get("amount_owed", ""), key=f"owed-{real_index}")
                     edit_amount_paid = st.text_input("Amount Paid", value=lead.get("amount_paid", ""), key=f"paid-{real_index}")
-                    edit_payment_status = st.selectbox("Payment Status", ["Unpaid", "Partial", "Paid"], index=["Unpaid", "Partial", "Paid"].index(lead.get("payment_status", "Unpaid")), key=f"paystatus-{real_index}")
-                    edit_invoice_status = st.selectbox("Invoice Status", ["Not Sent", "Sent", "Paid", "Overdue"], index=["Not Sent", "Sent", "Paid", "Overdue"].index(lead.get("invoice_status", "Not Sent")), key=f"invoice-{real_index}")
+                    edit_deposit_paid = st.text_input("Deposit Paid", value=lead.get("deposit_paid", ""), key=f"deposit-{real_index}")
+                    edit_payment_status = st.selectbox("Payment Status", payment_statuses, index=payment_statuses.index(lead.get("payment_status", "Unpaid")), key=f"paystatus-{real_index}")
+                    edit_invoice_status = st.selectbox("Invoice Status", invoice_statuses, index=invoice_statuses.index(lead.get("invoice_status", "Not Sent")), key=f"invoice-{real_index}")
                     edit_next_action = st.text_input("Next Action", value=lead.get("next_action", ""), key=f"action-{real_index}")
                     edit_notes = st.text_area("Notes", value=lead.get("notes", ""), key=f"notes-{real_index}")
                     new_log = st.text_area("Add Call / Task Note", key=f"log-{real_index}")
@@ -222,6 +342,7 @@ with tabs[2]:
                         leads[real_index]["last_contacted"] = str(edit_last_contacted)
                         leads[real_index]["amount_owed"] = edit_amount_owed
                         leads[real_index]["amount_paid"] = edit_amount_paid
+                        leads[real_index]["deposit_paid"] = edit_deposit_paid
                         leads[real_index]["payment_status"] = edit_payment_status
                         leads[real_index]["invoice_status"] = edit_invoice_status
                         leads[real_index]["next_action"] = edit_next_action
@@ -230,17 +351,20 @@ with tabs[2]:
                         if new_log:
                             if "call_log" not in leads[real_index]:
                                 leads[real_index]["call_log"] = []
+
                             leads[real_index]["call_log"].append({
                                 "date": str(datetime.now()),
                                 "note": new_log
                             })
 
-                        save_leads(leads)
+                        all_leads[username] = leads
+                        save_json(LEADS_FILE, all_leads)
                         st.success("Lead updated!")
                         st.rerun()
 
                 with st.expander("📞 Call / Task Log"):
                     logs = lead.get("call_log", [])
+
                     if logs:
                         for log in logs:
                             st.write(f"**{log.get('date', '')}**")
@@ -251,12 +375,14 @@ with tabs[2]:
 
                 if st.button("Delete Lead", key=f"delete-{real_index}"):
                     leads.pop(real_index)
-                    save_leads(leads)
+                    all_leads[username] = leads
+                    save_json(LEADS_FILE, all_leads)
                     st.rerun()
     else:
         st.info("No leads found.")
 
-# PAYMENTS
+# ---------- PAYMENTS ----------
+
 with tabs[3]:
     st.subheader("💰 Payments")
 
@@ -265,16 +391,18 @@ with tabs[3]:
     if unpaid:
         for lead in unpaid:
             with st.container(border=True):
-                st.write(f"**{lead.get('name', 'No Name')}**")
-                st.write(f"📞 {lead.get('phone', '')}")
-                st.write(f"💸 Owed: ${money(lead.get('amount_owed', 0)):,.0f}")
-                st.write(f"✅ Paid: ${money(lead.get('amount_paid', 0)):,.0f}")
-                st.write(f"📌 Balance Due: ${balance_due(lead):,.0f}")
-                st.write(f"🧾 Invoice: {lead.get('invoice_status', 'Not Sent')}")
+                st.write(f"### {lead.get('name', 'No Name')}")
+                st.write(f"📞 **Phone:** {lead.get('phone', '')}")
+                st.write(f"💸 **Owed:** ${money(lead.get('amount_owed', 0)):,.0f}")
+                st.write(f"✅ **Paid:** ${money(lead.get('amount_paid', 0)):,.0f}")
+                st.write(f"💵 **Deposit:** ${money(lead.get('deposit_paid', 0)):,.0f}")
+                st.write(f"📌 **Balance Due:** ${balance_due(lead):,.0f}")
+                st.write(f"🧾 **Invoice:** {lead.get('invoice_status', 'Not Sent')}")
     else:
         st.success("No outstanding balances.")
 
-# FOLLOW-UPS
+# ---------- FOLLOW UPS ----------
+
 with tabs[4]:
     st.subheader("📅 Follow-Ups")
 
@@ -286,15 +414,18 @@ with tabs[4]:
             with st.container(border=True):
                 if lead.get("follow_up") == str(date.today()):
                     st.error("⚠️ DUE TODAY")
-                st.write(f"**{lead.get('name', 'No Name')}**")
-                st.write(f"📅 Follow-Up: {lead.get('follow_up', '')}")
-                st.write(f"📞 Phone: {lead.get('phone', '')}")
-                st.write(f"👉 Next Action: {lead.get('next_action', '')}")
-                st.write(f"🕒 Last Contacted: {lead.get('last_contacted', '')}")
+
+                st.write(f"### {lead.get('name', 'No Name')}")
+                st.write(f"📅 **Follow-Up:** {lead.get('follow_up', '')}")
+                st.write(f"📞 **Phone:** {lead.get('phone', '')}")
+                st.write(f"📧 **Email:** {lead.get('email', '')}")
+                st.write(f"👉 **Next Action:** {lead.get('next_action', '')}")
+                st.write(f"🕒 **Last Contacted:** {lead.get('last_contacted', '')}")
     else:
         st.info("No follow-ups scheduled.")
 
-# EXPORT
+# ---------- EXPORT ----------
+
 with tabs[5]:
     st.subheader("📤 Export Leads")
 
@@ -305,10 +436,33 @@ with tabs[5]:
         st.download_button(
             label="Download Leads as CSV",
             data=csv,
-            file_name="william_locht_crm_leads.csv",
+            file_name=f"{business_name.replace(' ', '_').lower()}_leads.csv",
             mime="text/csv"
         )
 
         st.dataframe(df, use_container_width=True)
     else:
         st.info("No leads to export yet.")
+
+# ---------- SETTINGS ----------
+
+with tabs[6]:
+    st.subheader("⚙️ Account & Branding Settings")
+
+    new_business_name = st.text_input("Business Name", value=business_name)
+    new_business_type = st.selectbox(
+        "Business Type",
+        ["Real Estate", "Cleaning", "Both", "Other"],
+        index=["Real Estate", "Cleaning", "Both", "Other"].index(user.get("business_type", "Both"))
+    )
+
+    if st.button("Save Branding Settings", use_container_width=True):
+        users[username]["business_name"] = new_business_name
+        users[username]["business_type"] = new_business_type
+        save_json(USERS_FILE, users)
+        st.success("Branding updated!")
+        st.rerun()
+
+    st.divider()
+
+    st.warning("Prototype note: this login system is good for testing, but a real SaaS should use Supabase/Auth0/Firebase authentication and a real cloud database before selling to customers.")
