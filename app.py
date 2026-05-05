@@ -85,15 +85,14 @@ if filtered_leads:
         st.error("⚠️ FOLLOW UP TODAY")
 
     st.subheader(lead.get("name", "No Name"))
-        st.subheader(lead.get("name", "No Name"))
-        st.write(f"📞 Phone: {lead.get('phone', '')}")
-        st.write(f"🏢 Service: {lead.get('service', '')}")
-        st.write(f"📌 Status: {lead.get('status', 'New')}")
-        st.write(f"📅 Follow-Up: {lead.get('follow_up', 'Not set')}")
-        st.write(f"📝 Notes: {lead.get('notes', '')}")
-        st.divider()
-else:
-    st.write("No leads found.")
+    st.write(f"📞 Phone: {lead.get('phone', '')}")
+    st.write(f"🏢 Service: {lead.get('service', '')}")
+    st.write(f"📌 Status: {lead.get('status', 'New')}")
+    st.write(f"📅 Follow-Up: {lead.get('follow_up', 'Not set')}")
+    st.write(f"📝 Notes: {lead.get('notes', '')}")
+    st.write(f"💰 Value: {lead.get('quote', '')}")
+    st.write(f"👉 Next Action: {lead.get('next_action', '')}")
+    st.divider()
 
 if st.button(f"Delete {lead.get('name')}", key=lead.get('phone')):
     leads.remove(lead)
