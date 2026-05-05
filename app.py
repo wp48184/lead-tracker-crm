@@ -15,8 +15,8 @@ def save_leads(leads):
     with open(FILE_NAME, "w") as file:
         json.dump(leads, file, indent=4)
 
-st.title("Lead Tracker CRM 💼")
-st.write("Real Estate + Cleaning Business Lead Tracker")
+st.title("Wills Tracking for Cleaning Company 💼")
+st.write("Cleaning Business customer Tracker")
 
 leads = load_leads()
 
@@ -24,8 +24,8 @@ st.header("Add New Lead")
 
 name = st.text_input("Name")
 phone = st.text_input("Phone")
-service = st.selectbox("Service", ["Real Estate", "Cleaning", "Other"])
-status = st.selectbox("Lead Status", ["New", "Contacted", "Follow-Up Needed", "Closed", "Lost"])
+service = st.selectbox("Service", ["Buyer Lead", "Seller Lead", "Cleaning Client", "Referral", "Other"])
+status = st.selectbox("Lead Status", ["New", "Called", "Texted", "Appointment Set", "Under Contract", "Closed", "Lost"])
 follow_up = st.date_input("Follow-Up Date", value=date.today())
 notes = st.text_area("Notes")
 
@@ -38,6 +38,8 @@ if st.button("Save Lead"):
             "status": status,
             "follow_up": str(follow_up),
             "notes": notes
+            "quote": quote
+            "adress": adress
         })
         save_leads(leads)
         st.success("Lead saved!")
