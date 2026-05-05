@@ -37,14 +37,15 @@ quote = st.text_input("Deal Value / Cleaning Quote ($)")
 if st.button("Save Lead"):
     if name and phone:
         leads.append({
-            "name": name,
-            "phone": phone,
-            "service": service,
-            "status": status,
-            "follow_up": str(follow_up),
-            "notes": notes,            
-            "adress": adress
-        })
+    "name": name,
+    "phone": phone,
+    "service": service,
+    "status": status,
+    "follow_up": str(follow_up),
+    "notes": notes,
+    "quote": quote,
+    "next_action": next_action
+})
         save_leads(leads)
         next_action = st.text_input("Next Action (Call, Text, Show Property, Quote Cleaning, etc.)")
         "next_action": next_action,    
